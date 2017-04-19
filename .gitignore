@@ -1,0 +1,7 @@
+*.pyc
+*.zip
+*.xlsx
+Data/
+namo_data/
+env/
+

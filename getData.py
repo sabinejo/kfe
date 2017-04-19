@@ -6,7 +6,7 @@ import zipfile
 import operator
 import glob
 import pandas as pd
-from datetime import datetime 
+from datetime import datetime, date, timedelta
 
 
 # inputs
@@ -20,31 +20,35 @@ colnames = pd.read_excel('Input/CSV.header.fieldids.xlsx', sheetname='Sheet1',
 
 
 #------------------------------------------------------------------------------------------
-
    
-def getGdelt(country_codes, days_in_past, local_path =''):
+def dateIncrement(start,end,delta):
+    while start < end:
+        yield start
+        start +=delta
+
+
+def getGdelt(country_codes,date_range_begin,date_range_end,local_path=''):
 
     # inputs
     gdelt_base_url = 'http://data.gdeltproject.org/events/'
 
-    # get the list of all the links on the gdelt file page
-    page = requests.get(gdelt_base_url+'index.html')
-    doc = lh.fromstring(page.content)
-    link_list = doc.xpath("//*/ul/li/a/@href")
+    # dates
+    start = datetime.strptime(date_range_begin, '%Y%m%d')
+    end = datetime.strptime(date_range_end, '%Y%m%d') 
 
-    # separate out those links that begin with four digits 
-    file_list = [x for x in link_list if str.isdigit(x[0:4])]
+    # names of relevant gdelt files to be downloaded
+    file_list_selected = []
+    for result in dateIncrement(start,end,timedelta(days=1)):
+        date_str = result.strftime('%Y%m%d') + '.export.CSV.zip'
+        file_list_selected.append(date_str)
 
     
     infilecounter = 0
     outfilecounter = 0
 
-    
-    for compressed_file in file_list[:days_in_past]:
-        print compressed_file,
-    
-        # if we dont have the compressed file stored locally, go get it. Keep trying if necessary.
 
+    for compressed_file in file_list_selected:
+       # if we dont have the compressed file stored locally, go get it. Keep trying if necessary.
         while not os.path.isfile(local_path+compressed_file): 
             print 'downloading,',
             urllib.urlretrieve(url=gdelt_base_url+compressed_file, 
@@ -71,10 +75,13 @@ def getGdelt(country_codes, days_in_past, local_path =''):
             # open the infile and outfile
             with open(infile_name, mode='r') as infile, open(outfile_name, mode='w') as outfile:
                 records = 0
+                country_codes_use = []
                 for line in infile:
+
                     # extract lines with our interest country code
-                    #based on columns: ActionGeo_ADM1Code 51, Actor1Geo_ADM1Code 37, Actor2Geo_ADM1Code 44
-                    la = [country for country in country_codes if country in set(operator.itemgetter(51, 37, 44)(line.split('\t')))]
+                    #based on columns: ActionGeo_CountryCode 51
+                    
+                    la = [country for country in country_codes if country in line.split('\t')[51]]
                     if la:
                         outfile.write(line)
                         records +=1
@@ -128,7 +135,8 @@ def saveGdelt(colnames,downloads_path='namo_data/'):
 
 #------------------------------------------------------------------------------------------
 
-#getGdelt(country_codes=namo_country_codes, days_in_past=3)
+getGdelt(country_codes=namo_country_codes,date_range_begin="20170415", date_range_end="20170417")
 
-saveGdelt(colnames=colnames)
+
+#saveGdelt(colnames=colnames)
  

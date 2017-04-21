@@ -4,4 +4,4 @@
 Data/
 namo_data/
 env/
-
+*.Rhistory

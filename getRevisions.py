@@ -1,8 +1,9 @@
 import requests, json
-from wikitools import wiki, api
 
 BASE_URL = "http://en.wikipedia.org/w/api.php"
+
 TITLES = ['Islamic State of Iraq and the Levant', 'Taliban']
+
 
 for title in TITLES:
     parameters = { 'action': 'query',
@@ -11,29 +12,27 @@ for title in TITLES:
              'titles': title,
              'prop': 'revisions',
              'rvprop': 'ids|userid',
-             'rvlimit': 'max',
-             'rvstart':'2016-01-01T12:00:00Z',
-             'rvend':'2016-02-28T23:59:00Z',
-             'rvdir':'newer'}
+             'rvstart':'2014-01-01T00:00:00Z',
+             'rvend':'2014-01-02T23:59:00Z', 
+             'rvlimit': 'max'}
 
-    wp_call = requests.get(BASE_URL, params=parameters)
+    wp_call = requests.get(BASE_URL, params=parameters, verify = True)
     response = wp_call.json()
 
     total_revisions = 0
 
     while True:
-      wp_call = requests.get(BASE_URL, params=parameters)
-      response = wp_call.json()
+        wp_call = requests.get(BASE_URL, params=parameters, verify = True)
+        response = wp_call.json()
 
-      for page_id in response['query']['pages']:
-          total_revisions += len(response['query']['pages'][page_id]['revisions'])
+        for page_id in response['query']['pages']:
+            total_revisions += len(response['query']['pages'][page_id]['revisions'])
 
-      if 'continue' in response:
-        parameters['continue'] = response['continue']['continue']
-        parameters['rvcontinue'] = response['continue']['rvcontinue']
+        if 'continue' in response:
+            parameters['continue'] = response['continue']['continue']
+            parameters['rvcontinue'] = response['continue']['rvcontinue']
 
-      else:
-        break
- 
+        else:
+            break
+
     print parameters['titles'], total_revisions
-

@@ -14,7 +14,8 @@ from helpers import dateIncrement,monthChunks,get_zip
 # inputs
 countries = pd.ExcelFile("Input/Country_codes_NAMO.xlsx").parse("Sheet1")
 # country_codes
-namo_country_codes = [
+namo_country_codes = ['IS',
+
 'KU',
 'BA',
 'MU',
@@ -22,7 +23,6 @@ namo_country_codes = [
 'SA',
 'AE',
 'YM',
-'IS',
 'JO',
 'LE',
 'SY',

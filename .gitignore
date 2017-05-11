@@ -1,7 +1,15 @@
 *.pyc
 *.zip
 *.xlsx
+*.xls
+*.csv
+*.txt
+*.dat
+*.dta
+*.asc
+*.RData
 Data/
 namo_data/
 env/
 *.Rhistory
+tmp/

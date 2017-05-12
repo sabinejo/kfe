@@ -1,147 +1,83 @@
+import os
 import requests
 import lxml.html as lh
-import os
 import urllib
 import zipfile
 from zipfile import BadZipfile
 import operator
-import glob
-import pandas as pd
 from datetime import datetime, date, timedelta
-from helpers import dateIncrement,monthChunks,get_zip
+import pandas as pd
+from helpers import dateIncrement,monthChunks,getDateList
+from gdelt_helpers import getColNames,namoCountryCodes,unzipAndParse,getOutfileName,concatDF,dfToCsv
 
 
-# inputs
-countries = pd.ExcelFile("Input/Country_codes_NAMO.xlsx").parse("Sheet1")
-# country_codes
-namo_country_codes = ['IS',
 
-'KU',
-'BA',
-'MU',
-'QA',
-'SA',
-'AE',
-'YM',
-'JO',
-'LE',
-'SY',
-'EG',
-'IR',
-'TU',
-'IZ'
-]
 
-# GDELT field names from a helper file
-colnames = pd.read_excel('Input/CSV.header.fieldids.xlsx', sheetname='Sheet1', 
-                             index_col='Column ID', parse_cols=1)['Field Name']
 
 #------------------------------------------------------------------------------------------
 
 
-def getGdelt(country_codes,date_range_begin,date_range_end,colnames=colnames):
+def getGdeltData(date_range_begin,date_range_end,colnames=getColNames(),country_codes=namoCountryCodes()):
 
-    # inputs
+
     gdelt_base_url = 'http://data.gdeltproject.org/events/'
 
-    # dates
-    start = datetime.strptime(date_range_begin, '%Y%m%d')
-    end = datetime.strptime(date_range_end, '%Y%m%d') 
+    # get strings for the selected time period to be downloaded
+    date_strings = []
+    for date_string in getDateList(date_range_begin,date_range_end):
+        date_strings.append(date_string)
 
-    # names of relevant gdelt files to be downloaded
+    # get all relevant links to be downloaded and file names to be unzipped
 
     file_list_selected = []
 
-    for result in dateIncrement(start,end,timedelta(days=1)):
-        date_str = result.strftime('%Y%m%d') + '.export.CSV.zip'
+    for date_string in date_strings:
+        date_str = date_string + '.export.CSV.zip'
         file_list_selected.append(date_str)
-
-    
-    outfilecounter = 0
-
     
     # create output folder if not present
-    output_folder = 'namo_data/'
+    output_folder = 'gdelt_tsv_data/'
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
 
-    line_counter = 0
+    # extract
+    unzipAndParse(file_list=file_list_selected, gdelt_base_url=gdelt_base_url,country_codes=country_codes,down_dir='gdelt_tsv_data/')
 
-    for compressed_file in file_list_selected:
-        
-        # downloading the zipped file 
-        print 'retrieving {0},'.format(compressed_file[0:8]),
-        
-        file_url = gdelt_base_url+compressed_file
-        
-        print 'extracting,',
+    # get all files to be concatenated
+    outfiles = getOutfileName(file_list_selected=file_list_selected, down_dir='gdelt_tsv_data/')
 
-        # if file doesnt exist
+    # concatenate files
+    if len(outfiles) > 0:
+        DF = concatDF(outfiles=outfiles,colnames=colnames,down_dir='gdelt_tsv_data/')
+    else:
+        print 'No files selected to process'    
 
-        try:
-            extracted_file = get_zip(file_url)
-        except BadZipfile:
-            continue
-        
-        # parse each of the csv files in the working directory, 
-        print 'parsing,',
-            
-
-        outfile_name = 'namo_data/'+'gdelt_'+ compressed_file[0:8] +'.tsv'
-
-        # check if its already there
-        while not os.path.isfile(outfile_name):
-
-            with open(outfile_name, mode='w') as outfile:
-
-                # keep only root events & countries in namo list
-                lines = [
-                           line for line in extracted_file.readlines() if int(line.split('\t')[25]) == 1 and line.split('\t')[51] in namo_country_codes
-                        ]
-                
-                # save output
-                for line in lines:
-                    outfile.write(line)
-                    line_counter +=1
-
-         
-                # update outfile counter
-                print 'written lines: {0}'.format(len(lines))
-                outfilecounter +=1 
-
-
-    print 'done with processing of {0} files'.format(outfilecounter) 
-
-
-    # read output created and add headers
-    processed_files = [file[10:] for file in glob.glob('namo_data/*')]
-    selected_files  = ['gdelt_' + file[0:8] + '.tsv' for file in file_list_selected]
-
-    outfiles = [file for file in processed_files if file in selected_files]
-
-    DFlist = []
-
-    for active_file in outfiles:
-        DFlist.append(pd.read_csv('namo_data/'+ active_file, sep='\t', header=None, dtype=str,
-                                  names=colnames, index_col=['GLOBALEVENTID']))
-
-    # Merge the file-based dataframes and save a pickle
-    DF = pd.concat(DFlist)
     # save as csv
-    file_name = 'gdelt_'+ date_range_begin + '_' + date_range_end +'.csv'
-    DF.to_csv('Data/'+ file_name)
+    outfilename = 'gdelt_'+ date_range_begin + '_' + date_range_end +'.csv'
+    dfToCsv(df=DF,outfilename=outfilename, path = "gdelt_data/")    
+    
     # total rows created
     total_rows = DF.shape[0]
-    print('{0} rows created in {1}').format(total_rows,file_name)
+    print('{0} rows created in {1}').format(total_rows,outfilename)
 
-    # # remove files downloaded
+# # remove files downloaded
     # os.remove(outfile_name) 
 
 
-#------------------------------------------------------------------------------------------
 
-# monthly download
 
-for start,end in monthChunks(start = "20151101",end="20151231"):
-    getGdelt(country_codes=namo_country_codes,date_range_begin=start, date_range_end=end, colnames=colnames)
-    print 'downloaded for timeperiod {0} - {1}'.format(start,end)
+# chunk
+def getGdelt(date_range_begin,date_range_end,chunking=True):
+
+    print "---------------------------------------------Starting with Gdelt Download---------------------------------------------" 
+
+    if chunking:
+        for start,end in monthChunks(start = date_range_begin,end=date_range_end):
+            getGdeltData(date_range_begin=start, date_range_end=end)
+            print 'downloaded for timeperiod {0} - {1}'.format(start,end)
+    else:
+        getGdeltData(date_range_begin=date_range_begin, date_range_end=date_range_end)
+
+    print "---------------------------------------------End of Gdelt Download---------------------------------------------" 
+
+

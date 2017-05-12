@@ -13,3 +13,5 @@ namo_data/
 env/
 *.Rhistory
 tmp/
+.ipynb_checkpoints/
+gdelt_tsv_data/

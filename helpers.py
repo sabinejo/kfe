@@ -1,10 +1,6 @@
 
 import arrow
-import requests
-import zipfile
-from zipfile import BadZipfile
 from datetime import datetime, date, timedelta
-from StringIO import StringIO
 
 
 def dateIncrement(start,end,delta):
@@ -12,14 +8,21 @@ def dateIncrement(start,end,delta):
         yield start
         start +=delta
 
-def get_zip(file_url):
-    url = requests.get(file_url)
-    zipped_file = zipfile.ZipFile(StringIO(url.content))
-    zip_names = zipped_file.namelist()
-    if len(zip_names) == 1:
-        file_name = zip_names.pop()
-        extracted_file = zipped_file.open(file_name)
-        return extracted_file
+# names of relevant phoenix files to be downloaded
+def getDateList(date_range_begin,date_range_end):
+
+    # dates
+    start = datetime.strptime(date_range_begin, '%Y%m%d')
+    end = datetime.strptime(date_range_end, '%Y%m%d') 
+    
+    date_list = []
+
+    # dates
+    for result in dateIncrement(start,end,timedelta(days=1)):
+        date_list.append(result.strftime('%Y%m%d'))
+    
+    return date_list
+
 
 def monthChunks(start,end):
 	start_date = arrow.get(datetime.strptime(start, '%Y%m%d'))
